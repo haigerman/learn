@@ -15,21 +15,21 @@
       label: 'Viel Unterstützung',
       desc: 'Alles wird vorgelesen, wenige Antwortmöglichkeiten, Bilder und Rechenhilfen sofort sichtbar, kleinere Schritte.',
       settings: { autoRead: true, syllables: true, bigText: true, spacing: true, fewOptions: true, choiceMath: true,
-        visualAids: true, goal: 60, pauseMin: 10 },
+        visualAids: true, goals: { lesen: 20, schreiben: 20, rechnen: 20 }, pauseMin: 10 },
       levels: { lesen: 2, schreiben: 2, rechnen: 2 }
     },
     lrs: {
       label: 'Lese-/Rechtschreib-Unterstützung',
       desc: 'Anweisungen werden vorgelesen, Silben farbig, großer Buchstabenabstand. Rechnen normal.',
       settings: { autoRead: true, syllables: true, bigText: true, spacing: true, fewOptions: false, choiceMath: false,
-        visualAids: false, goal: 100, pauseMin: 15 },
+        visualAids: false, goals: { lesen: 40, schreiben: 40, rechnen: 30 }, pauseMin: 15 },
       levels: { lesen: 3, schreiben: 3, rechnen: 5 }
     },
     standard: {
       label: 'Standard',
       desc: 'Ausgewogene Einstellungen.',
       settings: { autoRead: false, syllables: true, bigText: false, spacing: false, fewOptions: false, choiceMath: false,
-        visualAids: false, goal: 100, pauseMin: 20 },
+        visualAids: false, goals: { lesen: 30, schreiben: 30, rechnen: 40 }, pauseMin: 20 },
       levels: { lesen: 4, schreiben: 4, rechnen: 4 }
     }
   };
@@ -58,7 +58,7 @@
     var p = {
       id: 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
       name: name, avatar: avatar, preset: presetKey,
-      settings: Object.assign({ goalMode: 'day' }, pr.settings),
+      settings: Object.assign({ goalMode: 'day' }, JSON.parse(JSON.stringify(pr.settings))),
       subjects: {},
       days: {},
       stickers: [],
@@ -81,6 +81,12 @@
     p.wordStats = p.wordStats || {};
     p.stickers = p.stickers || [];
     p.settings = Object.assign({ goalMode: 'day', sound: true }, p.settings);
+    // Umstellung: früheres Gesamtziel auf drei Fachziele verteilen
+    if (!p.settings.goals) {
+      var per = Math.max(10, Math.round((p.settings.goal || 90) / 3 / 10) * 10);
+      p.settings.goals = { lesen: per, schreiben: per, rechnen: per };
+    }
+    delete p.settings.goal;
   }
 
   function day(p, date) {

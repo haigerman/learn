@@ -24,18 +24,46 @@
     LA.fx.setSound(S.get().sound !== false);
   }
 
-  function goal(p) { return p.settings.goal || 100; }
-  function goalPoints(p) {
-    return p.settings.goalMode === 'session' ? (app.session ? app.session.points : 0) : S.day(p).points;
+  /* ---------- Ziele pro Fach ---------- */
+  var SUBJ_KEYS = Object.keys(S.SUBJECTS);
+  function goalOf(p, k) { return (p.settings.goals && p.settings.goals[k]) || 0; }
+  function subjPoints(p, k) {
+    if (p.settings.goalMode === 'session') return app.session && app.session.subjPts ? (app.session.subjPts[k] || 0) : 0;
+    var d = p.days[u.todayStr()];
+    return d && d.subj[k] ? (d.subj[k].pts || 0) : 0;
   }
+  function subjReached(p, k) { var g = goalOf(p, k); return g > 0 && subjPoints(p, k) >= g; }
+  function goalSubjects(p) { return SUBJ_KEYS.filter(function (k) { return goalOf(p, k) > 0; }); }
+  function allReached(p) { var gs = goalSubjects(p); return gs.length > 0 && gs.every(function (k) { return subjReached(p, k); }); }
+  function openSubjects(p) { return goalSubjects(p).filter(function (k) { return !subjReached(p, k); }); }
 
-  function progressBar(p, big) {
-    var g = goal(p), pts = goalPoints(p), pct = Math.min(100, Math.round(pts / g * 100));
-    var reached = pts >= g;
+  function progressBar(p, k, big) {
+    var g = goalOf(p, k), pts = subjPoints(p, k);
+    var suffix = p.settings.goalMode === 'session' ? ' (diese Runde)' : ' heute';
+    if (!g) {
+      return h('div', { class: 'goalbar nogoal' + (big ? ' big' : '') },
+        h('div', { class: 'goalbar-label' }, '⭐ ' + pts + ' Punkte' + suffix + ' · freies Üben'));
+    }
+    var pct = Math.min(100, Math.round(pts / g * 100)), reached = pts >= g;
     return h('div', { class: 'goalbar' + (big ? ' big' : '') + (reached ? ' reached' : '') },
       h('div', { class: 'goalbar-track' }, h('div', { class: 'goalbar-fill', style: { width: pct + '%' } }),
-        h('span', { class: 'goalbar-flag' }, reached ? '🏆' : '🏁')),
-      h('div', { class: 'goalbar-label' }, '⭐ ' + pts + ' / ' + g + ' Punkte' + (p.settings.goalMode === 'session' ? ' (diese Runde)' : ' heute')));
+        h('span', { class: 'goalbar-flag' }, reached ? '✅' : '🏁')),
+      h('div', { class: 'goalbar-label' }, '⭐ ' + pts + ' / ' + g + ' Punkte' + suffix));
+  }
+
+  // Übersicht: welche Fachziele sind geschafft?
+  function goalSummary(p) {
+    var gs = goalSubjects(p);
+    if (!gs.length) return null;
+    var done = gs.filter(function (k) { return subjReached(p, k); }).length;
+    var all = done === gs.length;
+    return h('div', { class: 'goal-summary' + (all ? ' all' : '') },
+      h('span', { class: 'gs-title' }, all ? '🏆 Tagesziel geschafft!' : '🎯 Tagesziel:'),
+      gs.map(function (k) {
+        return h('span', { class: 'gs-item' + (subjReached(p, k) ? ' ok' : '') },
+          S.SUBJECTS[k].icon + ' ' + (subjReached(p, k) ? '✅' : subjPoints(p, k) + '/' + goalOf(p, k)));
+      }),
+      all ? null : h('span', { class: 'gs-count' }, done + ' von ' + gs.length + ' Fächern'));
   }
 
   /* ---------- Ersteinrichtung ---------- */
@@ -87,11 +115,13 @@
     s.appendChild(h('h2', null, 'Wer lernt heute?'));
     var grid = h('div', { class: 'profiles' });
     st.profiles.forEach(function (p) {
-      var d = p.days[u.todayStr()] || { points: 0, goal: false };
+      var d = p.days[u.todayStr()] || { points: 0, goal: false, subj: {} };
+      var marks = goalSubjects(p).map(function (k) { return S.SUBJECTS[k].icon + (d.subj[k] && d.subj[k].goal ? '✅' : ''); }).join('  ');
       grid.appendChild(h('button', { class: 'profile-card', onclick: function () { selectProfile(p); } },
         h('div', { class: 'avatar' }, p.avatar),
         h('div', { class: 'pname' }, p.name),
-        h('div', { class: 'small' }, d.goal ? '🏆 Ziel heute geschafft!' : '⭐ ' + d.points + ' Punkte heute')));
+        h('div', { class: 'small' }, d.goal ? '🏆 Tagesziel geschafft!' : '⭐ ' + d.points + ' Punkte heute'),
+        marks ? h('div', { class: 'small' }, marks) : null));
     });
     s.appendChild(grid);
     s.appendChild(h('button', { class: 'parent-link', onclick: parentGate }, '⚙️ Eltern'));
@@ -99,7 +129,7 @@
 
   function selectProfile(p) {
     app.profile = p;
-    app.session = { start: Date.now(), points: 0, tasks: 0, lastBreak: Date.now(), goalReached: false, streak: 0, recent: [] };
+    app.session = { start: Date.now(), points: 0, subjPts: {}, tasks: 0, lastBreak: Date.now(), streak: 0, recent: [] };
     applyProfileStyle();
     LA.speech.configure(S.get().speech);
     homeScreen(true);
@@ -116,7 +146,7 @@
     var hello = 'Hallo ' + p.name + '! Was möchtest du üben?';
     s.appendChild(h('h2', { class: 'hello' },
       h('button', { class: 'speak-btn', onclick: function () { LA.speech.speak(hello); } }, '🔊'), ' ', hello));
-    s.appendChild(progressBar(p, true));
+    s.appendChild(goalSummary(p));
     var tiles = h('div', { class: 'subjects' });
     Object.keys(S.SUBJECTS).forEach(function (key) {
       var sub = S.SUBJECTS[key], st = p.subjects[key];
@@ -129,7 +159,8 @@
         h('div', { class: 'sname' }, sub.name),
         h('div', { class: 'slevel' }, 'Stufe ' + lvl),
         h('div', { class: 'lvlbar' }, h('div', { style: { width: Math.round(fr * 100) + '%' } })),
-        stars));
+        stars,
+        h('div', { class: 'tile-goal' }, progressBar(p, key))));
     });
     s.appendChild(tiles);
     s.appendChild(h('div', { class: 'home-foot' },
@@ -152,7 +183,7 @@
       header.appendChild(h('button', { class: 'icon-btn', title: 'Zur Auswahl', onclick: function () { homeScreen(); } }, '🏠'));
       header.appendChild(h('div', { class: 'subj-label' }, S.SUBJECTS[subject].icon + ' ' + S.SUBJECTS[subject].name + ' · Stufe ' + A.levelOf(st)));
       header.appendChild(h('div', { class: 'streak' + (app.session.streak >= 3 ? ' hot' : '') }, app.session.streak >= 3 ? '🔥 ' + app.session.streak : ''));
-      header.appendChild(progressBar(p));
+      header.appendChild(progressBar(p, subject));
     }
 
     function makeTask() {
@@ -189,12 +220,14 @@
       var pts = A.POINTS[quality];
       if (quality === 'perfect') app.session.streak++; else app.session.streak = 0;
       var bonus = quality === 'perfect' && app.session.streak > 0 && app.session.streak % 5 === 0 ? 5 : 0;
-      var before = goalPoints(p);
+      var wasReached = subjReached(p, subject), wasAll = allReached(p);
       d.points += pts + bonus; app.session.points += pts + bonus;
+      app.session.subjPts[subject] = (app.session.subjPts[subject] || 0) + pts + bonus;
       d.tasks++; app.session.tasks++;
       if (quality === 'perfect') d.first++;
-      d.subj[subject] = d.subj[subject] || { n: 0, ok: 0 };
+      d.subj[subject] = d.subj[subject] || { n: 0, ok: 0, pts: 0 };
       d.subj[subject].n++; if (quality === 'perfect') d.subj[subject].ok++;
+      d.subj[subject].pts = (d.subj[subject].pts || 0) + pts + bonus;
       var now = Date.now();
       d.minutes = (d.minutes || 0) + Math.min(3, (now - (app.session.lastAct || app.session.start)) / 60000);
       app.session.lastAct = now;
@@ -206,11 +239,11 @@
       S.save();
 
       floatPoints(pts + bonus, bonus);
-      var after = goalPoints(p);
-      var reachedNow = before < goal(p) && after >= goal(p);
+      var subjNow = !wasReached && subjReached(p, subject);
+      var allNow = !wasAll && allReached(p);
       var chain = [];
       if (res.levelUp) chain.push(function (cb) { levelUpOverlay(subject, cb); });
-      if (reachedNow) chain.push(function (cb) { goalOverlay(cb); });
+      if (subjNow) chain.push(function (cb) { subjectGoalOverlay(subject, allNow, cb); });
       if ((Date.now() - app.session.lastBreak) / 60000 >= (p.settings.pauseMin || 15)) chain.push(function (cb) { breakOverlay(cb); });
       (function run() {
         if (!chain.length) { next(); return; }
@@ -252,20 +285,47 @@
     return st;
   }
 
-  function goalOverlay(cb) {
-    var p = app.profile, d = S.day(p);
-    if (p.settings.goalMode === 'session') app.session.goalReached = true;
-    d.goal = true;
+  // Fachziel geschafft: Sammelbild, Vorschlag für das nächste offene Fach.
+  // Sind damit alle Fachziele erreicht, gibt es die große Tagesziel-Feier.
+  function subjectGoalOverlay(subject, all, cb) {
+    var p = app.profile, d = S.day(p), sub = S.SUBJECTS[subject];
+    d.subj[subject].goal = true;
+    if (all) d.goal = true;
     var sticker = awardSticker(p);
     S.save();
-    LA.fx.play('goal'); LA.fx.confetti(200); setTimeout(function () { LA.fx.confetti(120); }, 700);
-    var msg = 'Hurra, ' + p.name + '! Du hast dein Ziel geschafft!' + (sticker ? ' Du bekommst ein neues Sammelbild.' : '');
+    var open = openSubjects(p);
+    var msg, content;
+    if (all) {
+      LA.fx.play('goal'); LA.fx.confetti(220); setTimeout(function () { LA.fx.confetti(140); }, 700);
+      msg = 'Hurra, ' + p.name + '! Du hast alle deine Tagesziele geschafft!';
+      content = [h('div', { class: 'big-emoji bounce' }, '🏆'), h('h2', null, 'Tagesziel komplett!'),
+        h('p', null, 'Alle Fächer geschafft: ' + goalSubjects(p).map(function (k) { return S.SUBJECTS[k].icon; }).join(' ') + ' – darauf kannst du richtig stolz sein!')];
+    } else {
+      LA.fx.play('level'); LA.fx.confetti(110);
+      msg = 'Super, ' + p.name + '! Dein Ziel im ' + sub.name + ' ist geschafft!' +
+        (open.length ? ' Jetzt fehlt noch ' + open.map(function (k) { return S.SUBJECTS[k].name; }).join(' und ') + '.' : '');
+      content = [h('div', { class: 'big-emoji bounce' }, sub.icon), h('h2', null, sub.name + '-Ziel geschafft!'),
+        h('p', null, 'Du hast ' + subjPoints(p, subject) + ' Punkte im ' + sub.name + ' gesammelt.'),
+        open.length ? h('p', { class: 'small' }, 'Noch offen: ' + open.map(function (k) { return S.SUBJECTS[k].icon + ' ' + S.SUBJECTS[k].name; }).join(', ')) : null];
+    }
+    if (sticker) {
+      msg += ' Du bekommst ein neues Sammelbild.';
+      content.push(h('div', { class: 'sticker-new' }, h('div', { class: 'small' }, 'Neues Sammelbild:'), h('div', { class: 'sticker big' }, sticker)));
+    }
     LA.speech.speak(msg);
-    var ov = overlay([h('div', { class: 'big-emoji bounce' }, '🏆'), h('h2', null, 'Ziel geschafft!'),
-      h('p', null, 'Du hast ' + goalPoints(p) + ' Punkte gesammelt. Darauf kannst du stolz sein!'),
-      sticker ? h('div', { class: 'sticker-new' }, h('div', { class: 'small' }, 'Neues Sammelbild:'), h('div', { class: 'sticker big' }, sticker)) : null],
-      [h('button', { class: 'btn big', onclick: function () { ov.remove(); finishScreen(); } }, '👋 Fertig für heute'),
-        h('button', { class: 'btn primary big', onclick: function () { ov.remove(); cb(); } }, '💪 Weiter üben')]);
+    var btns = [];
+    if (all) {
+      btns.push(h('button', { class: 'btn big', onclick: function () { ov.remove(); finishScreen(); } }, '👋 Fertig für heute'));
+      btns.push(h('button', { class: 'btn primary big', onclick: function () { ov.remove(); cb(); } }, '💪 Weiter üben'));
+    } else {
+      btns.push(h('button', { class: 'btn big', onclick: function () { ov.remove(); cb(); } }, 'Hier weiter üben'));
+      if (open.length) {
+        var nx = open[0];
+        btns.push(h('button', { class: 'btn primary big', onclick: function () { ov.remove(); playScreen(nx); } },
+          'Weiter mit ' + S.SUBJECTS[nx].icon + ' ' + S.SUBJECTS[nx].name + ' ➜'));
+      }
+    }
+    var ov = overlay(content, btns);
   }
 
   function breakOverlay(cb) {
@@ -287,6 +347,11 @@
     s.appendChild(h('h2', null, msg));
     s.appendChild(h('div', { class: 'card summary' },
       h('div', null, '⭐ Punkte heute: ', h('strong', null, d.points)),
+      SUBJ_KEYS.filter(function (k) { return d.subj[k] || goalOf(p, k); }).map(function (k) {
+        var pts = d.subj[k] ? d.subj[k].pts || 0 : 0, g = goalOf(p, k);
+        return h('div', { class: 'sum-sub' }, S.SUBJECTS[k].icon + ' ' + S.SUBJECTS[k].name + ': ', h('strong', null, pts + (g ? ' / ' + g : '')),
+          g && pts >= g ? ' ✅' : '');
+      }),
       h('div', null, '✅ Gleich beim ersten Mal richtig: ', h('strong', null, d.first + ' von ' + d.tasks)),
       h('div', null, '📒 Sammelbilder: ', h('strong', null, p.stickers.length))));
     s.appendChild(h('button', { class: 'btn primary big', onclick: startScreen }, 'Tschüss! 👋'));
@@ -298,7 +363,7 @@
     var s = screen('album');
     s.appendChild(h('div', { class: 'topbar' }, h('button', { class: 'icon-btn', onclick: function () { homeScreen(); } }, '⬅'),
       h('div', { class: 'who' }, '📒 Sammlung von ' + p.name), h('span')));
-    s.appendChild(h('p', { class: 'lead' }, 'Jedes Mal, wenn du dein Ziel schaffst, bekommst du ein neues Sammelbild. Du hast ' + p.stickers.length + ' von ' + LA.data.STICKERS.length + '.'));
+    s.appendChild(h('p', { class: 'lead' }, 'Für jedes Fach-Ziel, das du schaffst, bekommst du ein neues Sammelbild. Du hast ' + p.stickers.length + ' von ' + LA.data.STICKERS.length + '.'));
     s.appendChild(h('div', { class: 'album' }, LA.data.STICKERS.map(function (st) {
       var have = p.stickers.indexOf(st) >= 0;
       return h('div', { class: 'sticker' + (have ? '' : ' locked') }, have ? st : '❔');

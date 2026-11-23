@@ -2,7 +2,7 @@
 
 Eine motivierende Lern-App für **Lesen, Schreiben und Rechnen** für Grundschulkinder und Kinder mit
 Förderbedarf. Sie läuft im Browser am PC, passt die Schwierigkeit selbst an, liest vor und belohnt
-mit Tageszielen und Sammelbildern.
+mit Tageszielen pro Fach und Sammelbildern.
 
 - **Kein Server-Programm nötig:** nur HTML, CSS und JavaScript, keine Datenbank, kein PHP, kein Build-Schritt.
 - **Datenschutz:** Alle Daten bleiben im Browser des PCs (`localStorage`). Es gibt keine Anmeldung, kein Tracking
@@ -42,16 +42,22 @@ persönlichen Daten stehen: Namen und Fortschritte liegen nur im Browser.)
 | Bereich | Was passiert |
 |---|---|
 | **Wer lernt heute?** | Das Kind wählt sein Profil (Figur und Name). |
-| **Fächerauswahl** | Lesen 📖, Schreiben ✏️ oder Rechnen 🔢 – mit Stufe, Sternen und dem Tagesziel-Balken. |
+| **Fächerauswahl** | Lesen 📖, Schreiben ✏️ oder Rechnen 🔢 – jedes Fach mit Stufe, Sternen und eigenem Zielbalken. Oben zeigt eine Leiste, welche Fachziele heute schon geschafft sind. |
 | **Aufgaben** | 🔊 liest vor, 💡 gibt Hilfe. Bei Auswahlaufgaben gehen die Tasten 1–4, bei Zahlen die Zifferntasten und Enter. |
-| **Ziel erreicht** | Konfetti, ein neues Sammelbild (höchstens 3 pro Tag) und die Wahl „Weiter üben“ oder „Fertig für heute“. |
+| **Fachziel erreicht** | Konfetti, ein neues Sammelbild und der Vorschlag, mit dem nächsten offenen Fach weiterzumachen. Sind alle Fachziele geschafft, ist das Tagesziel komplett (🏆). |
 | **⚙️ Eltern** (unten rechts) | Geschützt durch eine Rechenaufgabe oder eine PIN. Dort gibt es Fortschritt, Einstellungen, Lernwörter, Stimme und Datensicherung. |
+
+### Tagesziele pro Fach
+Im Elternbereich unter **„Kinder & Einstellungen“** wird für jedes Fach ein eigenes Punkteziel festgelegt (0 = kein Ziel,
+das Fach kann dann frei geübt werden). Die Punkte werden je Fach gezählt. Wahlweise gelten die Ziele pro Tag oder pro Übungsrunde.
+Unter **„Fortschritt“** zeigt das Diagramm die Punkte der letzten 14 Tage nach Fach, die Tabelle die heutigen Punkte und Ziele.
+Pro Aufgabe gibt es ca. 10 Punkte – ein Ziel von 30 entspricht also etwa 3–4 Aufgaben.
 
 ### Startprofile (jederzeit änderbar)
 - **Viel Unterstützung:** Alles wird vorgelesen, nur 3 Antworten zur Auswahl, Rechnen per Auswahl, Anschauungsmaterial
-  (Punkte, Zehnerstangen) sofort sichtbar, Ziel 60 Punkte, Pausen-Erinnerung alle 10 Minuten.
+  (Punkte, Zehnerstangen) sofort sichtbar, Ziele je 20 Punkte, Pausen-Erinnerung alle 10 Minuten.
 - **Lese-/Rechtschreib-Unterstützung:** Anweisungen werden vorgelesen, Silben farbig, großer Buchstaben- und Wortabstand,
-  Rechnen normal (startet bei Stufe 5).
+  Rechnen normal (startet bei Stufe 5), Ziele: Lesen 40, Schreiben 40, Rechnen 30.
 - **Standard:** ausgewogene Einstellungen.
 
 Die Startstufen sind nur ein Ausgangspunkt. In den ersten 8 Aufgaben je Fach stuft sich die App schneller ein.
@@ -103,7 +109,7 @@ verbindlichen Wörter der Klasse trägt man am besten als eigene Lernwörter ein
 | **Vorlesen** | Alle Anweisungen per Sprachausgabe; Lesetexte werden nicht automatisch vorgelesen, damit das Kind wirklich selbst liest. | Wood et al. (2018), Metaanalyse zu Text-to-Speech bei Leseschwierigkeiten |
 | **Rechtschreibstrategien** | Schwingen (Silben), Verlängern (Hund → Hunde), Merkwörter – mit kurzer Erklärung nach jeder Aufgabe. | Strategieorientierte Ansätze wie FRESCH; LehrplanPLUS „Richtig schreiben“ |
 | **Rechnen ohne Abzählen** | Zehnerfeld mit Fünferstruktur, Zehnerstangen und Hunderterplatten, Zehnerübergang in Schritten, Einmaleins über Kern- und Nachbaraufgaben. | Fachdidaktik Mathematik (z. B. Gaidoschik zur Ablösung vom zählenden Rechnen) |
-| **Motivation** | Wahlfreiheit beim Fach, sichtbarer Fortschritt (Sterne, Balken), Tagesziel, Sammelbilder, Lob für Anstrengung, kein Zeitdruck, kein Vergleich zwischen den Geschwistern. | Selbstbestimmungstheorie (Deci & Ryan); Sailer & Homner (2020), Metaanalyse Gamification; Mueller & Dweck (1998) |
+| **Motivation** | Wahlfreiheit beim Fach, sichtbarer Fortschritt (Sterne, Balken), klare Teilziele pro Fach, Sammelbilder, Lob für Anstrengung, kein Zeitdruck, kein Vergleich zwischen den Geschwistern. | Selbstbestimmungstheorie (Deci & Ryan); Sailer & Homner (2020), Metaanalyse Gamification; Mueller & Dweck (1998) |
 | **Kurze Einheiten und Bewegung** | Pausen-Erinnerung mit Bewegungsaufgabe nach einstellbarer Zeit. | Studien zu aktiven Pausen (z. B. Donnelly & Lambourne, 2011) |
 | **Reizarme Gestaltung** | Ruhige Farben, eine Aufgabe pro Bildschirm, große Schaltflächen. | Fisher, Godwin & Seltman (2014): visuelle Überfrachtung lenkt ab |
 

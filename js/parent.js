@@ -31,23 +31,44 @@
       var card = h('div', { class: 'card' });
       card.appendChild(h('h3', null, p.avatar + ' ' + p.name));
       // 14 Tage
+      var keys = Object.keys(S.SUBJECTS);
+      var goals = p.settings.goals || {};
       var daysEl = h('div', { class: 'chart' });
       var maxPts = goalMax(p);
       for (var i = 13; i >= 0; i--) {
         var dt = new Date(); dt.setDate(dt.getDate() - i);
         var key = u.todayStr(dt), d = p.days[key];
         var pts = d ? d.points : 0;
-        daysEl.appendChild(h('div', { class: 'bar-col', title: key + ': ' + pts + ' Punkte, ' + (d ? d.tasks : 0) + ' Aufgaben' },
-          h('div', { class: 'bar' + (d && d.goal ? ' goal' : ''), style: { height: Math.round(pts / maxPts * 100) + '%' } }),
+        var stack = h('div', { class: 'stack-bar' + (d && d.goal ? ' goal' : '') });
+        var tip = key + ': ' + pts + ' Punkte';
+        if (d) {
+          var known = 0;
+          keys.forEach(function (k) {
+            var sp = d.subj[k] ? d.subj[k].pts || 0 : 0;
+            known += sp;
+            if (sp) { stack.appendChild(h('div', { class: 'seg seg-' + k, style: { height: (sp / maxPts * 100) + '%' } })); tip += ' · ' + S.SUBJECTS[k].name + ' ' + sp + (d.subj[k].goal ? ' ✓' : ''); }
+          });
+          // ältere Tage ohne Aufteilung nach Fach
+          if (pts > known) stack.appendChild(h('div', { class: 'seg seg-old', style: { height: ((pts - known) / maxPts * 100) + '%' } }));
+        }
+        daysEl.appendChild(h('div', { class: 'bar-col', title: tip },
+          h('div', { class: 'bar-top' }, d && d.goal ? '🏆' : ''), stack,
           h('div', { class: 'bar-lbl' }, ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'][dt.getDay()])));
       }
-      card.appendChild(h('div', { class: 'small' }, 'Punkte der letzten 14 Tage (grün = Ziel erreicht, Ziel: ' + p.settings.goal + ')'));
+      card.appendChild(h('div', { class: 'small' }, 'Punkte der letzten 14 Tage nach Fach (🏆 = alle Tagesziele erreicht). Mit der Maus über einen Balken fahren für Details.'));
       card.appendChild(daysEl);
-      var tbl = h('table', { class: 'stats' }, h('tr', null, h('th', null, 'Fach'), h('th', null, 'Stufe'), h('th', null, 'Inhalt'), h('th', null, 'ca. Jgst.'),
+      card.appendChild(h('div', { class: 'legend' }, keys.map(function (k) {
+        return h('span', null, h('i', { class: 'seg-' + k }), S.SUBJECTS[k].name);
+      }), h('span', null, h('i', { class: 'seg-old' }), 'ohne Aufteilung')));
+      var today = p.days[u.todayStr()];
+      var tbl = h('table', { class: 'stats' }, h('tr', null, h('th', null, 'Fach'), h('th', null, 'Heute (Punkte / Ziel)'), h('th', null, 'Stufe'), h('th', null, 'Inhalt'), h('th', null, 'ca. Jgst.'),
         h('th', null, 'Trefferquote*'), h('th', null, 'Aufgaben gesamt')));
-      Object.keys(S.SUBJECTS).forEach(function (k) {
+      keys.forEach(function (k) {
         var s = p.subjects[k], lvl = A.levelOf(s), acc = A.accuracy(s, 20);
-        tbl.appendChild(h('tr', null, h('td', null, S.SUBJECTS[k].icon + ' ' + S.SUBJECTS[k].name), h('td', null, lvl + ' / ' + S.SUBJECTS[k].max),
+        var tp = today && today.subj[k] ? today.subj[k].pts || 0 : 0, g = goals[k] || 0;
+        tbl.appendChild(h('tr', null, h('td', null, S.SUBJECTS[k].icon + ' ' + S.SUBJECTS[k].name),
+          h('td', null, tp + ' / ' + (g || '–') + (g && tp >= g ? ' ✅' : '')),
+          h('td', null, lvl + ' / ' + S.SUBJECTS[k].max),
           h('td', null, LA.tasks[k].levels[lvl - 1]), h('td', null, LA.tasks[k].grades[lvl - 1]),
           h('td', null, acc === null ? '–' : Math.round(acc * 100) + ' %'), h('td', null, s.tasks)));
       });
@@ -60,12 +81,13 @@
         card.appendChild(h('div', { class: 'chips' }, hard.map(function (x) { return h('span', { class: 'chip' }, x.w + ' (' + x.s.err + '× Hilfe, ' + x.s.ok + '× richtig)'); })));
       }
       var total = Object.keys(p.days).reduce(function (acc, k) { acc.t += p.days[k].tasks; acc.g += p.days[k].goal ? 1 : 0; acc.d += p.days[k].tasks ? 1 : 0; acc.m += p.days[k].minutes || 0; return acc; }, { t: 0, g: 0, d: 0, m: 0 });
-      card.appendChild(h('p', { class: 'small' }, 'Lerntage: ' + total.d + ' · Ziel erreicht an ' + total.g + ' Tagen · Aufgaben insgesamt: ' + total.t + ' · Lernzeit ca. ' + Math.round(total.m) + ' Min. · Sammelbilder: ' + p.stickers.length));
+      card.appendChild(h('p', { class: 'small' }, 'Lerntage: ' + total.d + ' · alle Tagesziele erreicht an ' + total.g + ' Tagen · Aufgaben insgesamt: ' + total.t + ' · Lernzeit ca. ' + Math.round(total.m) + ' Min. · Sammelbilder: ' + p.stickers.length));
       body.appendChild(card);
     });
   }
   function goalMax(p) {
-    var m = p.settings.goal || 100;
+    var g = p.settings.goals || {};
+    var m = Math.max(30, (g.lesen || 0) + (g.schreiben || 0) + (g.rechnen || 0));
     Object.keys(p.days).forEach(function (k) { m = Math.max(m, p.days[k].points); });
     return m;
   }
@@ -94,11 +116,15 @@
       card.appendChild(h('div', { class: 'form-grid' },
         h('label', null, 'Name'), name,
         h('label', null, 'Figur'), av,
-        h('label', null, 'Punkteziel'), numberInput(p.settings.goal, 20, 500, 10, function (v) { p.settings.goal = v; }),
-        h('label', null, 'Ziel gilt'), select([['day', 'pro Tag'], ['session', 'pro Übungsrunde']], p.settings.goalMode, function (v) { p.settings.goalMode = v; }),
+        Object.keys(S.SUBJECTS).map(function (k) {
+          return [h('label', null, 'Tagesziel ' + S.SUBJECTS[k].icon + ' ' + S.SUBJECTS[k].name),
+            h('div', null, numberInput(p.settings.goals[k] || 0, 0, 500, 10, function (v) { p.settings.goals[k] = v; }), ' Punkte')];
+        }),
+        h('label', null, 'Ziele gelten'), select([['day', 'pro Tag'], ['session', 'pro Übungsrunde']], p.settings.goalMode, function (v) { p.settings.goalMode = v; }),
         h('label', null, 'Pausen-Erinnerung'), select([[99999, 'aus'], [8, 'alle 8 Min.'], [10, 'alle 10 Min.'], [15, 'alle 15 Min.'], [20, 'alle 20 Min.'], [30, 'alle 30 Min.']],
           p.settings.pauseMin, function (v) { p.settings.pauseMin = parseInt(v, 10); })));
-      card.appendChild(h('div', { class: 'small' }, 'Punkte: 10 für richtig im ersten Versuch, 6 mit Hilfe, 3 nach gezeigter Lösung, +5 Bonus für 5 in Folge. Ca. 8–12 Punkte pro Aufgabe.'));
+      card.appendChild(h('div', { class: 'small' }, '0 = kein Ziel für dieses Fach (freies Üben). Für jedes erreichte Fachziel gibt es ein Sammelbild; sind alle Fachziele geschafft, ist das Tagesziel komplett. ' +
+        'Punkte: 10 für richtig im ersten Versuch, 6 mit Hilfe, 3 nach gezeigter Lösung, +5 Bonus für 5 in Folge. Ca. 8–12 Punkte pro Aufgabe.'));
       var checks = h('div', { class: 'checks' });
       OPTS.forEach(function (o) {
         var cb = h('input', { type: 'checkbox', checked: !!p.settings[o[0]] });
